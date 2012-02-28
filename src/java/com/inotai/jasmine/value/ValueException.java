@@ -1,7 +1,10 @@
 package com.inotai.jasmine.value;
 
 public class ValueException extends RuntimeException {
-    ValueException(String text) {
-        super(text);
-    }
+
+	private static final long serialVersionUID = -758181093697816345L;
+
+	ValueException(String text) {
+		super(text);
+	}
 }
