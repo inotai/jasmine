@@ -54,7 +54,8 @@ public class Helpers {
 	// token. If the sequence if digits is not valid (contains other
 	// characters),
 	// the method returns false.
-	public static boolean read_hex_digits(Token token, CharSequence input, int digits)
+	public static boolean read_hex_digits(Token token, CharSequence input,
+			int digits)
 	// ------------------------------------------------------------------------
 	{
 		for (int i = 1; i <= digits; ++i) {
@@ -69,29 +70,32 @@ public class Helpers {
 		return true;
 	}
 
+	public static int string_to_int(int startPos, CharSequence input, int length)
+	// ------------------------------------------------------------------------
+	{
+		int skip = 0;
+		while (Character.isWhitespace(input.charAt(startPos + skip))) {
+			skip++;
+		}
+		return Integer.parseInt(input.subSequence(startPos + skip,
+				startPos + length).toString());
+	}
 
-	// TODO search the string for numeric chars, until a non-numeric char is found and return parsed int
-	public static int string_to_int( int startPos, CharSequence intpu, int length, int base)
-	//------------------------------------------------------------------------
-	{
-		/*INO_NOT_NULL( o_int );
-		errno = 0;
-		C16 * input_end = NULL;
-		long r = wcstol( i_string, &input_end, base );
-		*o_int = static_cast<xint>(r);
-		return valid;*/
-		return 0;
+	public static double string_to_double(int startPos, CharSequence input,
+			int length) {
+		int skip = 0;
+		while (Character.isWhitespace(input.charAt(startPos + skip))) {
+			skip++;
+		}
+		return Double.parseDouble(input.subSequence(startPos + skip,
+				startPos + length).toString());
 	}
-	
-	// TODO same as _to_int
-	public static double string_to_double(int startPos, CharSequence input, int length) {
-		return 0;
-	}
-	
-	public static boolean is_finite( double number )
-	//------------------------------------------------------------------------
+
+	public static boolean is_finite(double number)
+	// ------------------------------------------------------------------------
 	{
-		return number < Double.POSITIVE_INFINITY && number < Double.NEGATIVE_INFINITY;
+		return number < Double.POSITIVE_INFINITY
+				&& number < Double.NEGATIVE_INFINITY;
 	}
 
 }

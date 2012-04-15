@@ -41,7 +41,16 @@ public class JasmineReader {
 	int m_stack_depth;
 
 	// Parser flags
-	Flags m_flags;
+	private final Flags m_flags;
+
+	private JasmineReader(Flags flags) {
+		m_flags = flags;
+	}
+
+	public static Value read(CharSequence input) {
+		return new JasmineReader(Flags.getJasmine()).toValue(input, true);
+
+	}
 
 	private Value buildValue(boolean checkRoot) {
 		m_stack_depth++;
@@ -281,7 +290,7 @@ public class JasmineReader {
 			 */
 		}
 
-		return null;
+		return root;
 
 	}
 
@@ -527,7 +536,7 @@ public class JasmineReader {
 	Value decodeNumber(Token token) {
 		try {
 			int num_int = Helpers.string_to_int(token.getBegin(), json,
-					token.getLength(), 10);
+					token.getLength());
 			return Value.createIntegerValue(num_int);
 		} catch (Exception e) {
 			// ignore
