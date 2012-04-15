@@ -1,5 +1,13 @@
 Jasmine - Inotai's data format
 
-This repo holds a Java implementation of Jasmine Parser and Writer
+Jasmine is basically a nice to read JSON notation, it differs from JSON in several aspects:
 
-It's all work in progress.
+- optional coma - list items or object value-pairs do not need to be separated by a comma, new-line is enough
+- double quoted strings have some neat new escape sequences
+- single quoted strings - for simple strings without the excess of interpretting escape sequences
+- un-quoted strings - a.k.a symbols - simple values or keys without quotes are allowed
+- regular expressions - they do not need to represented as quoted strings, just the /regexp/options is fine
+- more types supported as object pair keys - single, double and unquoted strings as well as numbers
+
+This is a quick port of our C++ implementation, fork away and help us improve. 
+Every commit that changes something needs to come with tests though.
