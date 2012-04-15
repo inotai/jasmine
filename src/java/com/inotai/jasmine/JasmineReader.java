@@ -22,8 +22,6 @@ public class JasmineReader {
 	static final String STR_TRUE = "true";
 	static final String STR_FALSE = "false";
 
-	static final Token TOKEN_INVALID = new Token(TokenType.T_Invalid, 0, 0);
-
 	public static class LinePos {
 
 		public int line;
@@ -41,9 +39,6 @@ public class JasmineReader {
 
 	private CharSequence json;
 
-	// Pointer to the starting position in the input string.
-	int m_pos_start;
-
 	// Pointer to the current position in the input string.
 	int m_pos;
 
@@ -52,29 +47,20 @@ public class JasmineReader {
 
 	public static Value read(CharSequence input) {
 		return new JasmineReader().toValue(input, true);
-
 	}
 
-	private Value buildValue(boolean isRoot) {
+	private Value buildValue(Token token) {
 		m_stack_depth++;
 		if (m_stack_depth > STACK_LIMIT) {
-			LinePos begin = findLinePos(m_pos, 0);
+			LinePos begin = findLinePos(m_pos);
 			throw new TooMuchNestingException(begin.line, begin.column);
-		}
-
-		Token token = new Token();
-		parseToken(token);
-		// The root token must be an array or an object.
-		if (isRoot && token.getType() != TokenType.T_ObjectBegin
-				&& token.getType() != TokenType.T_ArrayBegin) {
-			throw new BadRootElementTypeException();
 		}
 
 		Value node = null;
 
 		switch (token.getType()) {
 		case T_Invalid: {
-			LinePos linePos = findLinePos(token, 0);
+			LinePos linePos = findLinePos(token);
 			throw new UnexpectedTokenException(linePos.line, linePos.column);
 		}
 
@@ -131,7 +117,7 @@ public class JasmineReader {
 			node = Value.createListValue();
 
 			while (token.getType() != TokenType.T_ArrayEnd) {
-				Value array_node = buildValue(false);
+				Value array_node = buildValue(token);
 
 				if (array_node == null)
 					return null;
@@ -171,7 +157,7 @@ public class JasmineReader {
 				if (!token_type_is_in(token.getType(),
 						TokenType.T_StringDoubleQuoted,
 						TokenType.T_StringSingleQuoted, TokenType.T_Symbol)) {
-					LinePos pos = findLinePos(token, 0);
+					LinePos pos = findLinePos(token);
 					throw new InvalidDictionaryKeyException(pos.line,
 							pos.column);
 				}
@@ -193,7 +179,7 @@ public class JasmineReader {
 				// Get key value
 				m_pos += token.getLength();
 				parseToken(token);
-				Value dict_value = buildValue(false);
+				Value dict_value = buildValue(token);
 				if (dict_value == null)
 					return null;
 
@@ -221,7 +207,7 @@ public class JasmineReader {
 		}
 
 		default: {
-			LinePos pos = findLinePos(token, 0);
+			LinePos pos = findLinePos(token);
 			throw new ParserException(pos.line, pos.column);
 		}
 		}
@@ -236,15 +222,22 @@ public class JasmineReader {
 	public Value toValue(CharSequence aJson, boolean checkRoot) {
 
 		json = aJson;
-		Value root = buildValue(checkRoot);
+		Token token = new Token();
+		parseToken(token);
+		// The root token must be an array or an object.
+		if (checkRoot && token.getType() != TokenType.T_ObjectBegin
+				&& token.getType() != TokenType.T_ArrayBegin) {
+			throw new BadRootElementTypeException();
+		}
+
+		Value root = buildValue(token);
 		if (root != null) {
-			Token token = new Token();
 			parseToken(token);
 
 			if (token.getType() == TokenType.T_EndOfInput)
 				return root;
 			else {
-				LinePos pos = findLinePos(token, 0);
+				LinePos pos = findLinePos(token);
 				throw new UnexpectedDataAfterRootException(pos.line, pos.column);
 			}
 
@@ -345,8 +338,6 @@ public class JasmineReader {
 		default:
 			parseSymbol(o_token);
 		}
-
-		return;
 	}
 
 	void parseRegExp(Token o_token) {
@@ -366,7 +357,7 @@ public class JasmineReader {
 		}
 
 		if ('/' != c) {
-			LinePos pos = findLinePos(o_token, 0);
+			LinePos pos = findLinePos(o_token);
 			throw new UnexpectedlyTerminatedException(pos.line, pos.column);
 		}
 
@@ -456,7 +447,7 @@ public class JasmineReader {
 		}
 
 		if (!Helpers.read_int(o_token, json, false)) {
-			o_token = TOKEN_INVALID;
+			o_token.setType(TokenType.T_Invalid);
 			return;
 		}
 
@@ -465,7 +456,7 @@ public class JasmineReader {
 		if ('.' == c) {
 			o_token.incLength();
 			if (!Helpers.read_int(o_token, json, true)) {
-				o_token = TOKEN_INVALID;
+				o_token.setType(TokenType.T_Invalid);
 				return;
 			}
 			c = o_token.nextChar(json);
@@ -481,7 +472,7 @@ public class JasmineReader {
 			}
 
 			if (!Helpers.read_int(o_token, json, true)) {
-				o_token = TOKEN_INVALID;
+				o_token.setType(TokenType.T_Invalid);
 				return;
 			}
 		}
@@ -519,7 +510,7 @@ public class JasmineReader {
 				case 'x':
 					if (!Helpers.read_hex_digits(o_token, json, 2)) {
 						LinePos pos = findLinePos(m_pos + o_token.getLength()
-								- 2, m_pos + o_token.getLength());
+								- 2);
 						throw new InvalidEscapeInStringException('x', pos.line,
 								pos.column);
 					}
@@ -528,7 +519,7 @@ public class JasmineReader {
 				case 'u':
 					if (!Helpers.read_hex_digits(o_token, json, 4)) {
 						LinePos pos = findLinePos(m_pos + o_token.getLength()
-								- 2, m_pos + o_token.getLength());
+								- 2);
 						throw new InvalidEscapeInStringException('u', pos.line,
 								pos.column);
 					}
@@ -546,8 +537,7 @@ public class JasmineReader {
 					break;
 
 				default:
-					LinePos pos = findLinePos(m_pos + o_token.getLength() - 2,
-							m_pos + o_token.getLength());
+					LinePos pos = findLinePos(m_pos + o_token.getLength() - 2);
 					throw new InvalidEscapeInStringException(c, pos.line,
 							pos.column);
 				}
@@ -560,9 +550,7 @@ public class JasmineReader {
 			o_token.incLength();
 			c = o_token.nextChar(json);
 		}
-
-		o_token = TOKEN_INVALID;
-		return;
+		o_token.setType(TokenType.T_Invalid);
 	}
 
 	Value decodeStringDoubleQuoted(Token token) {
@@ -650,9 +638,7 @@ public class JasmineReader {
 			o_token.incLength();
 			c = o_token.nextChar(json);
 		}
-
-		o_token = TOKEN_INVALID;
-		return;
+		o_token.setType(TokenType.T_Invalid);
 	}
 
 	Value decodeStringSingleQuoted(Token token) {
@@ -672,7 +658,8 @@ public class JasmineReader {
 			}
 		}
 
-		return Value.createStringValue(decoded_str.toString());
+		return Value.createStringValue(decoded_str.toString(),
+				StringType.SINGLE_QUOTED);
 	}
 
 	boolean nextStringMatch(String str) {
@@ -680,7 +667,7 @@ public class JasmineReader {
 			if (m_pos == json.length())
 				return false;
 
-			if (json.charAt(m_pos + 1) != str.charAt(i))
+			if (json.charAt(m_pos + i) != str.charAt(i))
 				return false;
 		}
 
@@ -767,10 +754,10 @@ public class JasmineReader {
 		return false;
 	}
 
-	LinePos findLinePos(int offset, int begin) {
+	LinePos findLinePos(int offset) {
 		LinePos linePos = new LinePos();
-		int end = m_pos_start + offset;
-		int pos = m_pos_start + begin;
+		int end = offset;
+		int pos = 0;
 		// Figure out the line and column the error occurred at.
 		for (; pos != end; ++pos) {
 			if (pos == json.length()) {
@@ -787,9 +774,8 @@ public class JasmineReader {
 		return linePos;
 	}
 
-	private LinePos findLinePos(Token token, int begin) {
-		return findLinePos(token.getBegin(),
-				token.getBegin() + token.getLength());
+	private LinePos findLinePos(Token token) {
+		return findLinePos(token.getBegin());
 	}
 
 }

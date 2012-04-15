@@ -59,9 +59,10 @@ public class Helpers {
 	// ------------------------------------------------------------------------
 	{
 		for (int i = 1; i <= digits; ++i) {
-			char c = input.charAt(token.getBegin() + token.getLength() + i);
-			if ('\0' == c)
+			int pos = token.getBegin() + token.getLength() + i;
+			if (pos == input.length())
 				return false;
+			char c = input.charAt(pos);
 			if (!(('0' <= c && c <= '9') || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')))
 				return false;
 		}
@@ -95,7 +96,7 @@ public class Helpers {
 	// ------------------------------------------------------------------------
 	{
 		return number < Double.POSITIVE_INFINITY
-				&& number < Double.NEGATIVE_INFINITY;
+				|| number < Double.NEGATIVE_INFINITY;
 	}
 
 }
