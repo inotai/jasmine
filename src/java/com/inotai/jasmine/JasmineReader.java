@@ -237,7 +237,7 @@ public class JasmineReader {
 
 	}
 
-	void parseToken(Token o_token) {
+	private void parseToken(Token o_token) {
 		eatWhitespaceAndComments();
 
 		o_token.set(TokenType.T_Invalid, 0, 0);
@@ -329,7 +329,7 @@ public class JasmineReader {
 		}
 	}
 
-	void parseRegExp(Token o_token) {
+	private void parseRegExp(Token o_token) {
 		o_token.set(TokenType.T_RegExp, position, 1);
 		char c = o_token.nextChar(jasmine);
 		while ('\0' != c) {
@@ -356,7 +356,7 @@ public class JasmineReader {
 		}
 	}
 
-	Value decodeRegExp(Token token) {
+	private Value decodeRegExp(Token token) {
 		StringBuffer decoded_reg_ex = new StringBuffer();
 		;
 
@@ -391,12 +391,12 @@ public class JasmineReader {
 				decoded_options.toString());
 	}
 
-	Value decodeSymbol(Token token) {
+	private Value decodeSymbol(Token token) {
 		return Value.createStringValue(token.getString(jasmine),
 				StringType.UNQUOTED);
 	}
 
-	Value decodeDictionaryKey(Token token) {
+	private Value decodeDictionaryKey(Token token) {
 		switch (token.getType()) {
 		case T_StringDoubleQuoted:
 			return decodeStringDoubleQuoted(token);
@@ -410,7 +410,7 @@ public class JasmineReader {
 		return null;
 	}
 
-	void parseSymbol(Token o_token) {
+	private void parseSymbol(Token o_token) {
 		char c = jasmine.charAt(position);
 		if (is_jasmine_symbol_char(c)) {
 			o_token.set(TokenType.T_Symbol, position, 0);
@@ -423,7 +423,7 @@ public class JasmineReader {
 		}
 	}
 
-	void parseNumberToken(Token o_token) {
+	private void parseNumberToken(Token o_token) {
 		// We just grab the number here. We validate the size in DecodeNumber.
 		// According to RFC4627, a valid number is: [minus] int [frac] [exp]
 		o_token.set(TokenType.T_Number, position, 0);
@@ -466,7 +466,7 @@ public class JasmineReader {
 		}
 	}
 
-	Value decodeNumber(Token token) {
+	private Value decodeNumber(Token token) {
 		try {
 			int num_int = Helpers.string_to_int(token.getBegin(), jasmine,
 					token.getLength());
@@ -486,7 +486,7 @@ public class JasmineReader {
 		}
 	}
 
-	void parseStringDoubleQuoted(Token o_token) {
+	private void parseStringDoubleQuoted(Token o_token) {
 		o_token.set(TokenType.T_StringDoubleQuoted, position, 1);
 		char c = o_token.nextChar(jasmine);
 		while ('\0' != c) {
@@ -536,7 +536,7 @@ public class JasmineReader {
 		o_token.setType(TokenType.T_Invalid);
 	}
 
-	Value decodeStringDoubleQuoted(Token token) {
+	private Value decodeStringDoubleQuoted(Token token) {
 		StringBuilder decoded_str = new StringBuilder();
 
 		for (int i = 1; i < token.getLength() - 1; ++i) {
@@ -605,7 +605,7 @@ public class JasmineReader {
 		return Value.createStringValue(decoded_str.toString());
 	}
 
-	void parseStringSingleQuoted(Token o_token) {
+	private void parseStringSingleQuoted(Token o_token) {
 		o_token.set(TokenType.T_StringSingleQuoted, position, 1);
 		char c = o_token.nextChar(jasmine);
 
@@ -624,7 +624,7 @@ public class JasmineReader {
 		o_token.setType(TokenType.T_Invalid);
 	}
 
-	Value decodeStringSingleQuoted(Token token) {
+	private Value decodeStringSingleQuoted(Token token) {
 		StringBuilder decoded_str = new StringBuilder();
 
 		for (int i = 1; i < token.getLength() - 1; ++i) {
@@ -645,7 +645,7 @@ public class JasmineReader {
 				StringType.SINGLE_QUOTED);
 	}
 
-	boolean nextStringMatch(String str) {
+	private boolean nextStringMatch(String str) {
 		for (int i = 0; i < str.length(); ++i) {
 			if (position == jasmine.length())
 				return false;
@@ -657,7 +657,7 @@ public class JasmineReader {
 		return true;
 	}
 
-	void eatWhitespaceAndComments() {
+	private void eatWhitespaceAndComments() {
 		while (position != jasmine.length()) {
 			switch (jasmine.charAt(position)) {
 			case ' ':
@@ -678,7 +678,7 @@ public class JasmineReader {
 		}
 	}
 
-	boolean eatComment() {
+	private boolean eatComment() {
 		if ('/' != jasmine.charAt(position))
 			return false;
 
@@ -715,12 +715,12 @@ public class JasmineReader {
 	}
 
 	// / Returns true if given character is a valid Jasmine symbol character.
-	boolean is_jasmine_symbol_char(char c) {
+	private boolean is_jasmine_symbol_char(char c) {
 		return ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
 				|| (c >= '0' && c <= '9') || char_is_in(c, '_', '-', '.'));
 	}
 
-	boolean token_type_is_in(TokenType t, TokenType... options) {
+	private boolean token_type_is_in(TokenType t, TokenType... options) {
 		for (TokenType o : options) {
 			if (t == o) {
 				return true;
@@ -729,7 +729,7 @@ public class JasmineReader {
 		return false;
 	}
 
-	boolean char_is_in(char c, char... options) {
+	private boolean char_is_in(char c, char... options) {
 		for (char o : options) {
 			if (c == o) {
 				return true;
@@ -738,7 +738,7 @@ public class JasmineReader {
 		return false;
 	}
 
-	LinePos findLinePos(int end) {
+	private LinePos findLinePos(int end) {
 		int pos = 0, line = 0, column = 0;
 		// Figure out the line and column the error occurred at.
 		for (; pos != end; ++pos) {
