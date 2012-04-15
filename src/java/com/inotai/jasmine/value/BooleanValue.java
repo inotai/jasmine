@@ -1,9 +1,14 @@
 package com.inotai.jasmine.value;
 
 public class BooleanValue extends Value {
-	private boolean value;
 
-	public BooleanValue(boolean booleanValue) {
+	public static final BooleanValue TRUE = new BooleanValue(true);
+
+	public static final BooleanValue FALSE = new BooleanValue(false);
+
+	private final boolean value;
+
+	private BooleanValue(boolean booleanValue) {
 		super(ValueType.BOOLEAN);
 		this.value = booleanValue;
 	}
@@ -13,6 +18,6 @@ public class BooleanValue extends Value {
 	}
 
 	public Object clone() {
-		return new BooleanValue(this.value);
+		return this;
 	}
 }

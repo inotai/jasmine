@@ -1,8 +1,9 @@
 package com.inotai.jasmine.value;
 
 public enum StringType {
-	DOUBLE_QUOTED(0, "DoubleQuoted"), SINGLE_QUOTED(1, "SingleQuoted"), UNQUOTED(
-			2, "Unquoted");
+	DOUBLE_QUOTED(0, "DoubleQuoted"),
+	SINGLE_QUOTED(1, "SingleQuoted"),
+	UNQUOTED(2, "Unquoted");
 
 	private final int value;
 	private final String name;
