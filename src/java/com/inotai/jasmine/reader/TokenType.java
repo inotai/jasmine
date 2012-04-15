@@ -1,22 +1,20 @@
 package com.inotai.jasmine.reader;
 
 public enum TokenType {
-	T_ObjectBegin, // {
-	T_ObjectEnd, // }
-	T_ArrayBegin, // [
-	T_ArrayEnd, // ]
-	T_StringDoubleQuoted,
-	T_Number,
-	T_BoolTrue, // true
-	T_BoolFalse, // false
-	T_Null, // null
-	T_ListSeparator, // ,
-	T_ObjectPairSeparator, // :
-	T_EndOfInput,
-	T_Invalid,
-
-	// Extended
-	T_RegExp, // /.../...
-	T_StringSingleQuoted,
-	T_Symbol
+	OBJECT_BEGIN, // {
+	OBJECT_END, // }
+	ARRAY_BEGIN, // [
+	ARRAY_END, // ]
+	STRING_DOUBLE_QUOTED, // "xxx"
+	STRING_SINGLE_QUOTED, // 'xxx'
+	SYMBOL, // xxx
+	NUMBER, // 1234
+	BOOL_TRUE, // true
+	BOOL_FALSE, // false
+	NULL, // null
+	LIST_SEPARATOR, // ,
+	OBJECT_PAIR_SEPARATOR, // :
+	END_OF_INPUT,
+	INVALID,
+	REG_EXP // /.../...
 }

@@ -11,7 +11,7 @@ public class Token {
 	private int length;
 
 	public Token() {
-		type = TokenType.T_Invalid;
+		type = TokenType.INVALID;
 		begin = 0;
 		length = 0;
 	}
