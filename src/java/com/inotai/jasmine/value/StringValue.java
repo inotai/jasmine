@@ -1,7 +1,7 @@
 package com.inotai.jasmine.value;
 
 public class StringValue extends Value {
-	
+
 	private String value;
 	private StringType stringType;
 

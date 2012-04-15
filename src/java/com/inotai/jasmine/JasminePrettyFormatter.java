@@ -6,6 +6,7 @@ import com.inotai.jasmine.value.Value;
 import com.inotai.jasmine.value.ValueType;
 
 public class JasminePrettyFormatter extends JasmineFormatter {
+
 	protected int indent;
 	protected int line;
 

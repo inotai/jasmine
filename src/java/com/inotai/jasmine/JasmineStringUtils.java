@@ -1,6 +1,7 @@
 package com.inotai.jasmine;
 
 class JasmineStringUtils {
+
 	static boolean doubleQuotedEscapeChar(char c, StringBuilder builder) {
 		// WARNING: if you add a new case here, you need to update the reader as
 		// well.

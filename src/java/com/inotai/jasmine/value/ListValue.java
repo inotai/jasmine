@@ -3,6 +3,7 @@ package com.inotai.jasmine.value;
 import java.util.ArrayList;
 
 public class ListValue extends Value {
+
 	ArrayList<Value> list;
 
 	public ListValue() {

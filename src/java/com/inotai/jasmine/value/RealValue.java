@@ -1,6 +1,7 @@
 package com.inotai.jasmine.value;
 
 public class RealValue extends Value {
+
 	private double value;
 
 	public RealValue(double real) {

@@ -27,7 +27,7 @@ public class Value implements Cloneable {
 	public static Value createNullValue() {
 		return NULL;
 	}
-	
+
 	public static Value createBooleanValue(boolean v) {
 		if (v) {
 			return BooleanValue.TRUE;
@@ -35,11 +35,11 @@ public class Value implements Cloneable {
 			return BooleanValue.FALSE;
 		}
 	}
-	
+
 	public static Value createListValue() {
 		return new ListValue();
 	}
-	
+
 	public static Value createDictionaryValue() {
 		return new DictionaryValue();
 	}

@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class DictionaryValue extends Value {
+
 	private LinkedHashMap<String, Value> map;
 
 	public DictionaryValue() {

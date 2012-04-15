@@ -11,6 +11,7 @@ import com.inotai.jasmine.value.StringValue;
 import com.inotai.jasmine.value.Value;
 
 public class JasmineWriter {
+
 	protected JasmineFormatter formatter;
 	protected Stack<Value> stack;
 

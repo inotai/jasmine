@@ -1,6 +1,7 @@
 package com.inotai.jasmine.value;
 
 public class IntegerValue extends Value {
+
 	private int value;
 
 	public IntegerValue(int integer) {

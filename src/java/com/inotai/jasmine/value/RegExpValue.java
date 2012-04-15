@@ -1,6 +1,7 @@
 package com.inotai.jasmine.value;
 
 public class RegExpValue extends Value {
+
 	private String value;
 	private String options;
 

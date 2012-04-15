@@ -1,9 +1,14 @@
 package com.inotai.jasmine.value;
 
 public enum ValueType {
-	NULL(0, "Null"), BOOLEAN(1, "Boolean"), INTEGER(2, "Integer"), REAL(3,
-			"Real"), STRING(4, "String"), REGEXP(5, "RegExp"), LIST(6, "List"), DICTIONARY(
-			7, "Dictionary");
+	NULL(0, "Null"),
+	BOOLEAN(1, "Boolean"),
+	INTEGER(2, "Integer"),
+	REAL(3, "Real"),
+	STRING(4, "String"),
+	REGEXP(5, "RegExp"),
+	LIST(6, "List"),
+	DICTIONARY(7, "Dictionary");
 
 	private final int value;
 	private final String name;

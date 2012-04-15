@@ -5,6 +5,7 @@ import java.util.Stack;
 import com.inotai.jasmine.value.Value;
 
 public class JasmineFormatter {
+
 	JasmineFormatter() {
 	}
 
