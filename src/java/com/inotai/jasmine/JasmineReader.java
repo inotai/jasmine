@@ -24,6 +24,10 @@ public class JasmineReader {
 	static final String STR_TRUE = "true";
 	static final String STR_FALSE = "false";
 
+	public static final TokenType[] DICTIONARY_KEY_TOKENS = new TokenType[] {
+			TokenType.STRING_DOUBLE_QUOTED, TokenType.STRING_SINGLE_QUOTED,
+			TokenType.SYMBOL };
+
 	public static final int STACK_LIMIT = 100;
 
 	private CharSequence jasmine;
@@ -144,9 +148,8 @@ public class JasmineReader {
 					token.setType(TokenType.SYMBOL);
 				}
 
-				if (!Helpers.token_type_is_in(token.getType(),
-						TokenType.STRING_DOUBLE_QUOTED,
-						TokenType.STRING_SINGLE_QUOTED, TokenType.SYMBOL)) {
+				if (!Helpers.isOneOfTokenTypes(token.getType(),
+						DICTIONARY_KEY_TOKENS)) {
 					throw new InvalidDictionaryKeyException(findLinePos(token));
 				}
 
@@ -346,7 +349,7 @@ public class JasmineReader {
 		}
 
 		c = o_token.nextChar(jasmine);
-		while ('\0' != c && Helpers.is_jasmine_symbol_char(c)) {
+		while ('\0' != c && Helpers.isJasmineSymbolChar(c)) {
 			o_token.incLength();
 			c = o_token.nextChar(jasmine);
 		}
@@ -407,14 +410,14 @@ public class JasmineReader {
 
 	private void parseSymbol(Token o_token) {
 		char c = jasmine.charAt(position);
-		if (Helpers.is_jasmine_symbol_char(c)) {
+		if (Helpers.isJasmineSymbolChar(c)) {
 			o_token.set(TokenType.SYMBOL, position, 0);
 
 			do {
 				o_token.incLength();
 				c = o_token.nextChar(jasmine);
 
-			} while (Helpers.is_jasmine_symbol_char(c));
+			} while (Helpers.isJasmineSymbolChar(c));
 		}
 	}
 
@@ -429,7 +432,7 @@ public class JasmineReader {
 			c = o_token.nextChar(jasmine);
 		}
 
-		if (!Helpers.read_int(o_token, jasmine, false)) {
+		if (!Helpers.readInteger(o_token, jasmine, false)) {
 			o_token.setType(TokenType.INVALID);
 			return;
 		}
@@ -438,7 +441,7 @@ public class JasmineReader {
 		c = o_token.nextChar(jasmine);
 		if ('.' == c) {
 			o_token.incLength();
-			if (!Helpers.read_int(o_token, jasmine, true)) {
+			if (!Helpers.readInteger(o_token, jasmine, true)) {
 				o_token.setType(TokenType.INVALID);
 				return;
 			}
@@ -454,7 +457,7 @@ public class JasmineReader {
 				c = o_token.nextChar(jasmine);
 			}
 
-			if (!Helpers.read_int(o_token, jasmine, true)) {
+			if (!Helpers.readInteger(o_token, jasmine, true)) {
 				o_token.setType(TokenType.INVALID);
 				return;
 			}
@@ -463,16 +466,16 @@ public class JasmineReader {
 
 	private Value decodeNumber(Token token) {
 		try {
-			int num_int = Helpers.string_to_int(token.getBegin(), jasmine,
+			int num_int = Helpers.stringToInteger(token.getBegin(), jasmine,
 					token.getLength());
 			return Value.createIntegerValue(num_int);
 		} catch (Exception e) {
 			// ignore
 		}
 		try {
-			double num_double = Helpers.string_to_double(token.getBegin(),
+			double num_double = Helpers.stringToDouble(token.getBegin(),
 					jasmine, token.getLength());
-			if (Helpers.is_finite(num_double)) {
+			if (!Double.isInfinite(num_double)) {
 				return Value.createRealValue(num_double);
 			}
 			return null;
@@ -491,14 +494,14 @@ public class JasmineReader {
 				// Make sure the escaped char is valid.
 				switch (c) {
 				case 'x':
-					if (!Helpers.read_hex_digits(o_token, jasmine, 2)) {
+					if (!Helpers.readHexDigits(o_token, jasmine, 2)) {
 						throw new InvalidEscapeInStringException('x',
 								findLinePos(position + o_token.getLength() - 2));
 					}
 					break;
 
 				case 'u':
-					if (!Helpers.read_hex_digits(o_token, jasmine, 4)) {
+					if (!Helpers.readHexDigits(o_token, jasmine, 4)) {
 						throw new InvalidEscapeInStringException('u',
 								findLinePos(position + o_token.getLength() - 2));
 					}
@@ -565,22 +568,22 @@ public class JasmineReader {
 				// break;
 
 				case 'x':
-					decoded_str.append((Helpers.hex_to_int(jasmine.charAt(token
+					decoded_str.append((Helpers.hexToInt(jasmine.charAt(token
 							.getBegin() + i + 1)) << 4)
-							+ Helpers.hex_to_int(jasmine.charAt(token
-									.getBegin() + i + 2)));
+							+ Helpers.hexToInt(jasmine.charAt(token.getBegin()
+									+ i + 2)));
 					i += 2;
 					break;
 
 				case 'u':
-					decoded_str.append((Helpers.hex_to_int(jasmine.charAt(token
+					decoded_str.append((Helpers.hexToInt(jasmine.charAt(token
 							.getBegin() + i + 1)) << 12)
-							+ (Helpers.hex_to_int(jasmine.charAt(token
-									.getBegin() + i + 2)) << 8)
-							+ (Helpers.hex_to_int(jasmine.charAt(token
-									.getBegin() + i + 3)) << 4)
-							+ Helpers.hex_to_int(jasmine.charAt(token
-									.getBegin() + i + 4)));
+							+ (Helpers.hexToInt(jasmine.charAt(token.getBegin()
+									+ i + 2)) << 8)
+							+ (Helpers.hexToInt(jasmine.charAt(token.getBegin()
+									+ i + 3)) << 4)
+							+ Helpers.hexToInt(jasmine.charAt(token.getBegin()
+									+ i + 4)));
 					i += 4;
 					break;
 
