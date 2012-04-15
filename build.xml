@@ -1,0 +1,60 @@
+<project name="jasmine" default="all">
+
+	<property environment="ENV" />
+
+	<condition property="version" value="${ENV.JASMINE_VERSION}" else="dev">
+		<isset property="ENV.JASMINE_VERSION" />
+	</condition>
+
+	<property name="jar.name" value="jasmine-${version}.jar" />
+
+	<target name="all" depends="jars, test" />
+
+	<target name="clean">
+		<delete dir="build" />
+	</target>
+
+	<target name="compile">
+		<mkdir dir="build/classes" />
+		<javac srcdir="src/java" destdir="build/classes" />
+		<copy todir="build/classes">
+			<fileset dir="src/java">
+				<exclude name="*.java" />
+			</fileset>
+		</copy>
+	</target>
+
+	<target name="jars" depends="compile">
+		<jar destfile="build/${jar.name}">
+			<fileset dir="build/classes">
+			</fileset>
+		</jar>
+	</target>
+
+	<target name="compile-tests" depends="compile">
+		<mkdir dir="build/test" />
+		<javac srcdir="src/test" destdir="build/test">
+			<classpath>
+				<path path="lib/junit-4.10.jar" />
+				<path path="build/classes" />
+			</classpath>
+		</javac>
+		<copy todir="build/test">
+			<fileset dir="src/test">
+				<exclude name="*.java" />
+			</fileset>
+		</copy>
+	</target>
+
+	<target name="test" depends="compile-tests">
+		<junit>
+			<classpath>
+				<path path="lib/junit-4.10.jar" />
+				<path path="build/classes" />
+				<path path="build/test" />
+			</classpath>
+			<formatter type="brief" usefile="false" />
+			<test name="com.inotai.jasmine.reader.AllTests" />
+		</junit>
+	</target>
+</project>
