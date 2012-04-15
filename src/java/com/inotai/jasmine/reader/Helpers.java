@@ -1,10 +1,8 @@
 package com.inotai.jasmine.reader;
 
-public class Helpers {
+import com.inotai.jasmine.reader.error.ParserException;
 
-	public static void not_reached() {
-		throw new IllegalStateException("Unexpected state");
-	}
+public class Helpers {
 
 	public static int hex_to_int(char c) {
 		if ('0' <= c && c <= '9')
@@ -13,9 +11,8 @@ public class Helpers {
 			return c - 'A' + 10;
 		else if ('a' <= c && c <= 'f')
 			return c - 'a' + 10;
-
-		not_reached();
-		return 0;
+		throw new ParserException(
+				"Found non-hex characted where I did not expect it.");
 	}
 
 	// ------------------------------------------------------------------------
@@ -97,6 +94,30 @@ public class Helpers {
 	{
 		return number < Double.POSITIVE_INFINITY
 				|| number < Double.NEGATIVE_INFINITY;
+	}
+
+	// / Returns true if given character is a valid Jasmine symbol character.
+	public static boolean is_jasmine_symbol_char(char c) {
+		return ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
+				|| (c >= '0' && c <= '9') || char_is_in(c, '_', '-', '.'));
+	}
+
+	public static boolean token_type_is_in(TokenType t, TokenType... options) {
+		for (TokenType o : options) {
+			if (t == o) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public static boolean char_is_in(char c, char... options) {
+		for (char o : options) {
+			if (c == o) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 }

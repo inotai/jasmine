@@ -16,7 +16,7 @@
 
 	<target name="compile">
 		<mkdir dir="build/classes" />
-		<javac srcdir="src/java" destdir="build/classes" />
+		<javac srcdir="src/java" destdir="build/classes" debug="true" />
 		<copy todir="build/classes">
 			<fileset dir="src/java">
 				<exclude name="*.java" />
@@ -33,7 +33,7 @@
 
 	<target name="compile-tests" depends="compile">
 		<mkdir dir="build/test" />
-		<javac srcdir="src/test" destdir="build/test">
+		<javac srcdir="src/test" destdir="build/test" debug="true">
 			<classpath>
 				<path path="lib/junit-4.10.jar" />
 				<path path="build/classes" />

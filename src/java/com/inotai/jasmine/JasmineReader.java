@@ -7,6 +7,7 @@ import com.inotai.jasmine.reader.TokenType;
 import com.inotai.jasmine.reader.error.BadRootElementTypeException;
 import com.inotai.jasmine.reader.error.InvalidDictionaryKeyException;
 import com.inotai.jasmine.reader.error.InvalidEscapeInStringException;
+import com.inotai.jasmine.reader.error.ParserError;
 import com.inotai.jasmine.reader.error.ParserException;
 import com.inotai.jasmine.reader.error.TooMuchNestingException;
 import com.inotai.jasmine.reader.error.UnexpectedDataAfterRootException;
@@ -108,32 +109,28 @@ public class JasmineReader {
 			parseToken(token);
 
 			value = Value.createListValue();
+			ListValue list = (ListValue) value;
 
 			while (token.getType() != TokenType.ARRAY_END) {
-				Value array_node = buildValue(token);
-
-				if (array_node == null)
+				Value element = buildValue(token);
+				if (element == null) {
 					return null;
-
-				((ListValue) value).add(array_node);
-
+				}
+				list.add(element);
 				// After a list value, we expect a comma or the end of the list.
 				parseToken(token);
-
 				if (token.getType() == TokenType.LIST_SEPARATOR) {
 					position += token.getLength();
 					parseToken(token);
 					if (token.getType() == TokenType.ARRAY_END) {
-						// Trailing comma OK, stop parsing the Array.
+						// Trailing comma is OK, stop parsing the Array.
 						break;
 					}
 				}
 			}
-
 			if (token.getType() != TokenType.ARRAY_END) {
 				return null;
 			}
-
 			break;
 		}
 
@@ -147,7 +144,7 @@ public class JasmineReader {
 					token.setType(TokenType.SYMBOL);
 				}
 
-				if (!token_type_is_in(token.getType(),
+				if (!Helpers.token_type_is_in(token.getType(),
 						TokenType.STRING_DOUBLE_QUOTED,
 						TokenType.STRING_SINGLE_QUOTED, TokenType.SYMBOL)) {
 					throw new InvalidDictionaryKeyException(findLinePos(token));
@@ -230,10 +227,9 @@ public class JasmineReader {
 				throw new UnexpectedDataAfterRootException(findLinePos(token));
 			}
 
+		} else {
+			throw new ParserError("No root value found.");
 		}
-
-		Helpers.not_reached();
-		return null;
 
 	}
 
@@ -350,7 +346,7 @@ public class JasmineReader {
 		}
 
 		c = o_token.nextChar(jasmine);
-		while ('\0' != c && is_jasmine_symbol_char(c)) {
+		while ('\0' != c && Helpers.is_jasmine_symbol_char(c)) {
 			o_token.incLength();
 			c = o_token.nextChar(jasmine);
 		}
@@ -405,21 +401,20 @@ public class JasmineReader {
 		case SYMBOL:
 			return decodeSymbol(token);
 		}
-
-		Helpers.not_reached();
-		return null;
+		throw new ParserError(
+				"Invalid dictionary key value found where I did not expect it.");
 	}
 
 	private void parseSymbol(Token o_token) {
 		char c = jasmine.charAt(position);
-		if (is_jasmine_symbol_char(c)) {
+		if (Helpers.is_jasmine_symbol_char(c)) {
 			o_token.set(TokenType.SYMBOL, position, 0);
 
 			do {
 				o_token.incLength();
 				c = o_token.nextChar(jasmine);
 
-			} while (is_jasmine_symbol_char(c));
+			} while (Helpers.is_jasmine_symbol_char(c));
 		}
 	}
 
@@ -590,10 +585,8 @@ public class JasmineReader {
 					break;
 
 				default:
-					// We should only have valid strings at this point. If not,
-					// ParseStringToken didn't do it's job.
-					Helpers.not_reached();
-					return null;
+					throw new ParserError(
+							"Invalid string found where I did not expect it.");
 				}
 
 			} else {
@@ -714,36 +707,13 @@ public class JasmineReader {
 		return true;
 	}
 
-	// / Returns true if given character is a valid Jasmine symbol character.
-	private boolean is_jasmine_symbol_char(char c) {
-		return ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
-				|| (c >= '0' && c <= '9') || char_is_in(c, '_', '-', '.'));
-	}
-
-	private boolean token_type_is_in(TokenType t, TokenType... options) {
-		for (TokenType o : options) {
-			if (t == o) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	private boolean char_is_in(char c, char... options) {
-		for (char o : options) {
-			if (c == o) {
-				return true;
-			}
-		}
-		return false;
-	}
-
 	private LinePos findLinePos(int end) {
 		int pos = 0, line = 0, column = 0;
 		// Figure out the line and column the error occurred at.
 		for (; pos != end; ++pos) {
 			if (pos == jasmine.length()) {
-				Helpers.not_reached();
+				throw new ParserError(
+						"Ran out of space while looking for the origin of an error.");
 			}
 
 			if (jasmine.charAt(pos) == '\n') {
