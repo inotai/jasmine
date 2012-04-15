@@ -1,6 +1,7 @@
 package com.inotai.jasmine;
 
 import com.inotai.jasmine.reader.Helpers;
+import com.inotai.jasmine.reader.LinePos;
 import com.inotai.jasmine.reader.Token;
 import com.inotai.jasmine.reader.TokenType;
 import com.inotai.jasmine.reader.error.BadRootElementTypeException;
@@ -22,46 +23,38 @@ public class JasmineReader {
 	static final String STR_TRUE = "true";
 	static final String STR_FALSE = "false";
 
-	public static class LinePos {
+	public static final int STACK_LIMIT = 100;
 
-		public int line;
+	private CharSequence jasmine;
 
-		public int column;
+	/**
+	 * Pointer to the current position in the input string.
+	 */
+	int position;
 
-		public void set(LinePos o) {
-			line = o.line;
-			column = o.column;
-		}
-
-	}
-
-	private final static int STACK_LIMIT = 100;
-
-	private CharSequence json;
-
-	// Pointer to the current position in the input string.
-	int m_pos;
-
-	// Used to keep track of how many nested lists/dicts there are.
-	int m_stack_depth;
+	/**
+	 * Used to keep track of how many nested lists/dicts there are.
+	 */
+	int stackDepth;
 
 	public static Value read(CharSequence input) {
 		return new JasmineReader().toValue(input, true);
 	}
 
-	private Value buildValue(Token token) {
-		m_stack_depth++;
-		if (m_stack_depth > STACK_LIMIT) {
-			LinePos begin = findLinePos(m_pos);
-			throw new TooMuchNestingException(begin.line, begin.column);
+	private void checkStackDepth() {
+		if (stackDepth > STACK_LIMIT) {
+			throw new TooMuchNestingException(findLinePos(position));
 		}
+	}
 
-		Value node = null;
+	private Value buildValue(Token token) {
+		stackDepth++;
+		checkStackDepth();
+		Value value = null;
 
 		switch (token.getType()) {
 		case T_Invalid: {
-			LinePos linePos = findLinePos(token);
-			throw new UnexpectedTokenException(linePos.line, linePos.column);
+			throw new UnexpectedTokenException(findLinePos(token));
 		}
 
 		case T_EndOfInput: {
@@ -69,52 +62,52 @@ public class JasmineReader {
 		}
 
 		case T_Null:
-			node = Value.createNullValue();
+			value = Value.createNullValue();
 			break;
 
 		case T_BoolTrue:
-			node = Value.createBooleanValue(true);
+			value = Value.createBooleanValue(true);
 			break;
 
 		case T_BoolFalse:
-			node = Value.createBooleanValue(false);
+			value = Value.createBooleanValue(false);
 			break;
 
 		case T_Number:
-			node = decodeNumber(token);
-			if (node == null)
+			value = decodeNumber(token);
+			if (value == null)
 				return null;
 			break;
 
 		case T_StringDoubleQuoted:
-			node = decodeStringDoubleQuoted(token);
-			if (node == null)
+			value = decodeStringDoubleQuoted(token);
+			if (value == null)
 				return null;
 			break;
 
 		case T_StringSingleQuoted:
-			node = decodeStringSingleQuoted(token);
-			if (node == null)
+			value = decodeStringSingleQuoted(token);
+			if (value == null)
 				return null;
 			break;
 
 		case T_RegExp:
-			node = decodeRegExp(token);
-			if (node == null)
+			value = decodeRegExp(token);
+			if (value == null)
 				return null;
 			break;
 
 		case T_Symbol:
-			node = decodeSymbol(token);
-			if (node == null)
+			value = decodeSymbol(token);
+			if (value == null)
 				return null;
 			break;
 
 		case T_ArrayBegin: {
-			m_pos += token.getLength();
+			position += token.getLength();
 			parseToken(token);
 
-			node = Value.createListValue();
+			value = Value.createListValue();
 
 			while (token.getType() != TokenType.T_ArrayEnd) {
 				Value array_node = buildValue(token);
@@ -122,13 +115,13 @@ public class JasmineReader {
 				if (array_node == null)
 					return null;
 
-				((ListValue) node).add(array_node);
+				((ListValue) value).add(array_node);
 
 				// After a list value, we expect a comma or the end of the list.
 				parseToken(token);
 
 				if (token.getType() == TokenType.T_ListSeparator) {
-					m_pos += token.getLength();
+					position += token.getLength();
 					parseToken(token);
 					if (token.getType() == TokenType.T_ArrayEnd) {
 						// Trailing comma OK, stop parsing the Array.
@@ -145,10 +138,10 @@ public class JasmineReader {
 		}
 
 		case T_ObjectBegin: {
-			m_pos += token.getLength();
+			position += token.getLength();
 			parseToken(token);
 
-			node = Value.createDictionaryValue();
+			value = Value.createDictionaryValue();
 			while (token.getType() != TokenType.T_ObjectEnd) {
 				if (token.getType() == TokenType.T_Number) {
 					token.setType(TokenType.T_Symbol);
@@ -157,9 +150,7 @@ public class JasmineReader {
 				if (!token_type_is_in(token.getType(),
 						TokenType.T_StringDoubleQuoted,
 						TokenType.T_StringSingleQuoted, TokenType.T_Symbol)) {
-					LinePos pos = findLinePos(token);
-					throw new InvalidDictionaryKeyException(pos.line,
-							pos.column);
+					throw new InvalidDictionaryKeyException(findLinePos(token));
 				}
 
 				// Get key value
@@ -171,26 +162,26 @@ public class JasmineReader {
 				String dict_key = dict_key_value.getAsString();
 
 				// Key-value pair separator
-				m_pos += token.getLength();
+				position += token.getLength();
 				parseToken(token);
 				if (token.getType() != TokenType.T_ObjectPairSeparator)
 					return null;
 
 				// Get key value
-				m_pos += token.getLength();
+				position += token.getLength();
 				parseToken(token);
 				Value dict_value = buildValue(token);
 				if (dict_value == null)
 					return null;
 
 				// Add key and value to the dictionary
-				((DictionaryValue) node).add(dict_key, dict_value);
+				((DictionaryValue) value).add(dict_key, dict_value);
 
 				// Get list separator
 				parseToken(token);
 				if (token.getType() == TokenType.T_ListSeparator) {
 					// Check what's next
-					m_pos += token.getLength();
+					position += token.getLength();
 					parseToken(token);
 					if (token.getType() == TokenType.T_ObjectEnd) {
 						// Trailing comma OK, stop parsing the Object.
@@ -207,21 +198,20 @@ public class JasmineReader {
 		}
 
 		default: {
-			LinePos pos = findLinePos(token);
-			throw new ParserException(pos.line, pos.column);
+			throw new ParserException(findLinePos(token));
 		}
 		}
 
-		m_pos += token.getLength();
+		position += token.getLength();
 
-		--m_stack_depth;
-		return node;
+		--stackDepth;
+		return value;
 
 	}
 
 	public Value toValue(CharSequence aJson, boolean checkRoot) {
 
-		json = aJson;
+		jasmine = aJson;
 		Token token = new Token();
 		parseToken(token);
 		// The root token must be an array or an object.
@@ -237,8 +227,7 @@ public class JasmineReader {
 			if (token.getType() == TokenType.T_EndOfInput)
 				return root;
 			else {
-				LinePos pos = findLinePos(token);
-				throw new UnexpectedDataAfterRootException(pos.line, pos.column);
+				throw new UnexpectedDataAfterRootException(findLinePos(token));
 			}
 
 		}
@@ -253,55 +242,55 @@ public class JasmineReader {
 
 		o_token.set(TokenType.T_Invalid, 0, 0);
 
-		if (m_pos == json.length()) {
+		if (position == jasmine.length()) {
 			o_token.setType(TokenType.T_EndOfInput);
 			return;
 		}
 
-		switch (json.charAt(m_pos)) {
+		switch (jasmine.charAt(position)) {
 		case 'n':
 			if (nextStringMatch(STR_NULL))
-				o_token.set(TokenType.T_Null, m_pos, 4);
+				o_token.set(TokenType.T_Null, position, 4);
 			else
 				parseSymbol(o_token);
 			break;
 
 		case 't':
 			if (nextStringMatch(STR_TRUE))
-				o_token.set(TokenType.T_BoolTrue, m_pos, 4);
+				o_token.set(TokenType.T_BoolTrue, position, 4);
 			else
 				parseSymbol(o_token);
 			break;
 
 		case 'f':
 			if (nextStringMatch(STR_FALSE))
-				o_token.set(TokenType.T_BoolFalse, m_pos, 5);
+				o_token.set(TokenType.T_BoolFalse, position, 5);
 			else
 				parseSymbol(o_token);
 			break;
 
 		case '[':
-			o_token.set(TokenType.T_ArrayBegin, m_pos, 1);
+			o_token.set(TokenType.T_ArrayBegin, position, 1);
 			break;
 
 		case ']':
-			o_token.set(TokenType.T_ArrayEnd, m_pos, 1);
+			o_token.set(TokenType.T_ArrayEnd, position, 1);
 			break;
 
 		case ',':
-			o_token.set(TokenType.T_ListSeparator, m_pos, 1);
+			o_token.set(TokenType.T_ListSeparator, position, 1);
 			break;
 
 		case '{':
-			o_token.set(TokenType.T_ObjectBegin, m_pos, 1);
+			o_token.set(TokenType.T_ObjectBegin, position, 1);
 			break;
 
 		case '}':
-			o_token.set(TokenType.T_ObjectEnd, m_pos, 1);
+			o_token.set(TokenType.T_ObjectEnd, position, 1);
 			break;
 
 		case ':':
-			o_token.set(TokenType.T_ObjectPairSeparator, m_pos, 1);
+			o_token.set(TokenType.T_ObjectPairSeparator, position, 1);
 			break;
 
 		case '0':
@@ -341,30 +330,29 @@ public class JasmineReader {
 	}
 
 	void parseRegExp(Token o_token) {
-		o_token.set(TokenType.T_RegExp, m_pos, 1);
-		char c = o_token.nextChar(json);
+		o_token.set(TokenType.T_RegExp, position, 1);
+		char c = o_token.nextChar(jasmine);
 		while ('\0' != c) {
 			if ('\\' == c) {
 				o_token.incLength();
-				c = o_token.nextChar(json);
+				c = o_token.nextChar(jasmine);
 			} else if ('/' == c) {
 				o_token.incLength();
 				break;
 			}
 
 			o_token.incLength();
-			c = o_token.nextChar(json);
+			c = o_token.nextChar(jasmine);
 		}
 
 		if ('/' != c) {
-			LinePos pos = findLinePos(o_token);
-			throw new UnexpectedlyTerminatedException(pos.line, pos.column);
+			throw new UnexpectedlyTerminatedException(findLinePos(o_token));
 		}
 
-		c = o_token.nextChar(json);
+		c = o_token.nextChar(jasmine);
 		while ('\0' != c && is_jasmine_symbol_char(c)) {
 			o_token.incLength();
-			c = o_token.nextChar(json);
+			c = o_token.nextChar(jasmine);
 		}
 	}
 
@@ -374,14 +362,14 @@ public class JasmineReader {
 
 		int i = 1;
 		for (; i < token.getLength() - 1; ++i) {
-			char c = json.charAt(token.getBegin() + i);
+			char c = jasmine.charAt(token.getBegin() + i);
 
 			if ('\\' == c) {
 				// Not escaped
 				decoded_reg_ex.append(c);
 				// Read the escaped character
 				i++;
-				c = json.charAt(token.getBegin() + i);
+				c = jasmine.charAt(token.getBegin() + i);
 				decoded_reg_ex.append(c);
 			} else if ('/' == c) {
 				// End of regexp, options may continue
@@ -396,7 +384,7 @@ public class JasmineReader {
 		i++;
 
 		for (; i < token.getLength(); ++i) {
-			decoded_options.append(json.charAt(token.getBegin() + i));
+			decoded_options.append(jasmine.charAt(token.getBegin() + i));
 		}
 
 		return Value.createRegExpValue(decoded_reg_ex.toString(),
@@ -404,7 +392,7 @@ public class JasmineReader {
 	}
 
 	Value decodeSymbol(Token token) {
-		return Value.createStringValue(token.getString(json),
+		return Value.createStringValue(token.getString(jasmine),
 				StringType.UNQUOTED);
 	}
 
@@ -423,13 +411,13 @@ public class JasmineReader {
 	}
 
 	void parseSymbol(Token o_token) {
-		char c = json.charAt(m_pos);
+		char c = jasmine.charAt(position);
 		if (is_jasmine_symbol_char(c)) {
-			o_token.set(TokenType.T_Symbol, m_pos, 0);
+			o_token.set(TokenType.T_Symbol, position, 0);
 
 			do {
 				o_token.incLength();
-				c = o_token.nextChar(json);
+				c = o_token.nextChar(jasmine);
 
 			} while (is_jasmine_symbol_char(c));
 		}
@@ -438,40 +426,40 @@ public class JasmineReader {
 	void parseNumberToken(Token o_token) {
 		// We just grab the number here. We validate the size in DecodeNumber.
 		// According to RFC4627, a valid number is: [minus] int [frac] [exp]
-		o_token.set(TokenType.T_Number, m_pos, 0);
+		o_token.set(TokenType.T_Number, position, 0);
 
-		char c = json.charAt(m_pos);
+		char c = jasmine.charAt(position);
 		if ('-' == c) {
 			o_token.incLength();
-			c = o_token.nextChar(json);
+			c = o_token.nextChar(jasmine);
 		}
 
-		if (!Helpers.read_int(o_token, json, false)) {
+		if (!Helpers.read_int(o_token, jasmine, false)) {
 			o_token.setType(TokenType.T_Invalid);
 			return;
 		}
 
 		// Optional fraction part
-		c = o_token.nextChar(json);
+		c = o_token.nextChar(jasmine);
 		if ('.' == c) {
 			o_token.incLength();
-			if (!Helpers.read_int(o_token, json, true)) {
+			if (!Helpers.read_int(o_token, jasmine, true)) {
 				o_token.setType(TokenType.T_Invalid);
 				return;
 			}
-			c = o_token.nextChar(json);
+			c = o_token.nextChar(jasmine);
 		}
 
 		// Optional exponent part
 		if ('e' == c || 'E' == c) {
 			o_token.incLength();
-			c = o_token.nextChar(json);
+			c = o_token.nextChar(jasmine);
 			if ('-' == c || '+' == c) {
 				o_token.incLength();
-				c = o_token.nextChar(json);
+				c = o_token.nextChar(jasmine);
 			}
 
-			if (!Helpers.read_int(o_token, json, true)) {
+			if (!Helpers.read_int(o_token, jasmine, true)) {
 				o_token.setType(TokenType.T_Invalid);
 				return;
 			}
@@ -480,7 +468,7 @@ public class JasmineReader {
 
 	Value decodeNumber(Token token) {
 		try {
-			int num_int = Helpers.string_to_int(token.getBegin(), json,
+			int num_int = Helpers.string_to_int(token.getBegin(), jasmine,
 					token.getLength());
 			return Value.createIntegerValue(num_int);
 		} catch (Exception e) {
@@ -488,7 +476,7 @@ public class JasmineReader {
 		}
 		try {
 			double num_double = Helpers.string_to_double(token.getBegin(),
-					json, token.getLength());
+					jasmine, token.getLength());
 			if (Helpers.is_finite(num_double)) {
 				return Value.createRealValue(num_double);
 			}
@@ -499,29 +487,25 @@ public class JasmineReader {
 	}
 
 	void parseStringDoubleQuoted(Token o_token) {
-		o_token.set(TokenType.T_StringDoubleQuoted, m_pos, 1);
-		char c = o_token.nextChar(json);
+		o_token.set(TokenType.T_StringDoubleQuoted, position, 1);
+		char c = o_token.nextChar(jasmine);
 		while ('\0' != c) {
 			if ('\\' == c) {
 				o_token.incLength();
-				c = o_token.nextChar(json);
+				c = o_token.nextChar(jasmine);
 				// Make sure the escaped char is valid.
 				switch (c) {
 				case 'x':
-					if (!Helpers.read_hex_digits(o_token, json, 2)) {
-						LinePos pos = findLinePos(m_pos + o_token.getLength()
-								- 2);
-						throw new InvalidEscapeInStringException('x', pos.line,
-								pos.column);
+					if (!Helpers.read_hex_digits(o_token, jasmine, 2)) {
+						throw new InvalidEscapeInStringException('x',
+								findLinePos(position + o_token.getLength() - 2));
 					}
 					break;
 
 				case 'u':
-					if (!Helpers.read_hex_digits(o_token, json, 4)) {
-						LinePos pos = findLinePos(m_pos + o_token.getLength()
-								- 2);
-						throw new InvalidEscapeInStringException('u', pos.line,
-								pos.column);
+					if (!Helpers.read_hex_digits(o_token, jasmine, 4)) {
+						throw new InvalidEscapeInStringException('u',
+								findLinePos(position + o_token.getLength() - 2));
 					}
 					break;
 
@@ -537,9 +521,8 @@ public class JasmineReader {
 					break;
 
 				default:
-					LinePos pos = findLinePos(m_pos + o_token.getLength() - 2);
-					throw new InvalidEscapeInStringException(c, pos.line,
-							pos.column);
+					throw new InvalidEscapeInStringException(c,
+							findLinePos(position + o_token.getLength() - 2));
 				}
 
 			} else if ('"' == c) {
@@ -548,7 +531,7 @@ public class JasmineReader {
 			}
 
 			o_token.incLength();
-			c = o_token.nextChar(json);
+			c = o_token.nextChar(jasmine);
 		}
 		o_token.setType(TokenType.T_Invalid);
 	}
@@ -557,10 +540,10 @@ public class JasmineReader {
 		StringBuilder decoded_str = new StringBuilder();
 
 		for (int i = 1; i < token.getLength() - 1; ++i) {
-			char c = json.charAt(token.getBegin() + i);
+			char c = jasmine.charAt(token.getBegin() + i);
 			if ('\\' == c) {
 				++i;
-				c = json.charAt(token.getBegin() + i);
+				c = jasmine.charAt(token.getBegin() + i);
 				switch (c) {
 				case '"':
 				case '/':
@@ -587,22 +570,22 @@ public class JasmineReader {
 				// break;
 
 				case 'x':
-					decoded_str.append((Helpers.hex_to_int(json.charAt(token
+					decoded_str.append((Helpers.hex_to_int(jasmine.charAt(token
 							.getBegin() + i + 1)) << 4)
-							+ Helpers.hex_to_int(json.charAt(token.getBegin()
-									+ i + 2)));
+							+ Helpers.hex_to_int(jasmine.charAt(token
+									.getBegin() + i + 2)));
 					i += 2;
 					break;
 
 				case 'u':
-					decoded_str.append((Helpers.hex_to_int(json.charAt(token
+					decoded_str.append((Helpers.hex_to_int(jasmine.charAt(token
 							.getBegin() + i + 1)) << 12)
-							+ (Helpers.hex_to_int(json.charAt(token.getBegin()
-									+ i + 2)) << 8)
-							+ (Helpers.hex_to_int(json.charAt(token.getBegin()
-									+ i + 3)) << 4)
-							+ Helpers.hex_to_int(json.charAt(token.getBegin()
-									+ i + 4)));
+							+ (Helpers.hex_to_int(jasmine.charAt(token
+									.getBegin() + i + 2)) << 8)
+							+ (Helpers.hex_to_int(jasmine.charAt(token
+									.getBegin() + i + 3)) << 4)
+							+ Helpers.hex_to_int(jasmine.charAt(token
+									.getBegin() + i + 4)));
 					i += 4;
 					break;
 
@@ -623,20 +606,20 @@ public class JasmineReader {
 	}
 
 	void parseStringSingleQuoted(Token o_token) {
-		o_token.set(TokenType.T_StringSingleQuoted, m_pos, 1);
-		char c = o_token.nextChar(json);
+		o_token.set(TokenType.T_StringSingleQuoted, position, 1);
+		char c = o_token.nextChar(jasmine);
 
 		while ('\0' != c) {
 			if ('\'' == c) {
 				o_token.incLength();
-				c = o_token.nextChar(json);
+				c = o_token.nextChar(jasmine);
 				if ('\'' != c) {
 					return;
 				}
 			}
 
 			o_token.incLength();
-			c = o_token.nextChar(json);
+			c = o_token.nextChar(jasmine);
 		}
 		o_token.setType(TokenType.T_Invalid);
 	}
@@ -645,10 +628,10 @@ public class JasmineReader {
 		StringBuilder decoded_str = new StringBuilder();
 
 		for (int i = 1; i < token.getLength() - 1; ++i) {
-			char c = json.charAt(token.getBegin() + i);
+			char c = jasmine.charAt(token.getBegin() + i);
 			if ('\'' == c) {
 				++i;
-				c = json.charAt(token.getBegin() + i);
+				c = jasmine.charAt(token.getBegin() + i);
 				if (c == '\'') {
 					decoded_str.append(c);
 				}
@@ -664,10 +647,10 @@ public class JasmineReader {
 
 	boolean nextStringMatch(String str) {
 		for (int i = 0; i < str.length(); ++i) {
-			if (m_pos == json.length())
+			if (position == jasmine.length())
 				return false;
 
-			if (json.charAt(m_pos + i) != str.charAt(i))
+			if (jasmine.charAt(position + i) != str.charAt(i))
 				return false;
 		}
 
@@ -675,13 +658,13 @@ public class JasmineReader {
 	}
 
 	void eatWhitespaceAndComments() {
-		while (m_pos != json.length()) {
-			switch (json.charAt(m_pos)) {
+		while (position != jasmine.length()) {
+			switch (jasmine.charAt(position)) {
 			case ' ':
 			case '\n':
 			case '\r':
 			case '\t':
-				++m_pos;
+				++position;
 				break;
 			case '/':
 				if (!eatComment())
@@ -696,32 +679,33 @@ public class JasmineReader {
 	}
 
 	boolean eatComment() {
-		if ('/' != json.charAt(m_pos))
+		if ('/' != jasmine.charAt(position))
 			return false;
 
-		char next_char = json.charAt(m_pos + 1);
+		char next_char = jasmine.charAt(position + 1);
 		if ('/' == next_char) {
 			// Line comment, read until \n or \r
-			m_pos += 2;
-			while (m_pos != json.length()) {
-				switch (json.charAt(m_pos)) {
+			position += 2;
+			while (position != jasmine.length()) {
+				switch (jasmine.charAt(position)) {
 				case '\n':
 				case '\r':
-					++m_pos;
+					++position;
 					return true;
 				default:
-					++m_pos;
+					++position;
 				}
 			}
 		} else if ('*' == next_char) {
 			// Block comment, read until */
-			m_pos += 2;
-			while (m_pos != json.length()) {
-				if ('*' == json.charAt(m_pos) && '/' == json.charAt(m_pos + 1)) {
-					m_pos += 2;
+			position += 2;
+			while (position != jasmine.length()) {
+				if ('*' == jasmine.charAt(position)
+						&& '/' == jasmine.charAt(position + 1)) {
+					position += 2;
 					return true;
 				}
-				++m_pos;
+				++position;
 			}
 		} else {
 			return false;
@@ -754,24 +738,22 @@ public class JasmineReader {
 		return false;
 	}
 
-	LinePos findLinePos(int offset) {
-		LinePos linePos = new LinePos();
-		int end = offset;
-		int pos = 0;
+	LinePos findLinePos(int end) {
+		int pos = 0, line = 0, column = 0;
 		// Figure out the line and column the error occurred at.
 		for (; pos != end; ++pos) {
-			if (pos == json.length()) {
+			if (pos == jasmine.length()) {
 				Helpers.not_reached();
 			}
 
-			if (json.charAt(pos) == '\n') {
-				linePos.line++;
-				linePos.column = 1;
+			if (jasmine.charAt(pos) == '\n') {
+				line++;
+				column = 1;
 			} else {
-				linePos.column++;
+				column++;
 			}
 		}
-		return linePos;
+		return new LinePos(line, column);
 	}
 
 	private LinePos findLinePos(Token token) {
