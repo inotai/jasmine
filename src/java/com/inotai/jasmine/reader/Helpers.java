@@ -23,9 +23,8 @@ public class Helpers {
 	 * token. The method returns false if there is no valid integer at the end
 	 * of the token.
 	 */
-	public static boolean readInteger(Token token, CharSequence input,
-			boolean canHaveLeadingZeros) {
-		char first = token.nextChar(input);
+	public static boolean readInteger(Token token, boolean canHaveLeadingZeros) {
+		char first = token.nextChar();
 		int len = 0;
 
 		// Read in more digits
@@ -33,7 +32,7 @@ public class Helpers {
 		while ('\0' != c && '0' <= c && c <= '9') {
 			token.incLength();
 			len++;
-			c = token.nextChar(input);
+			c = token.nextChar();
 		}
 
 		// We need at least 1 digit.

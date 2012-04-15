@@ -20,9 +20,9 @@ import com.inotai.jasmine.value.Value;
 
 public class JasmineReader {
 
-	static final String STR_NULL = "null";
-	static final String STR_TRUE = "true";
-	static final String STR_FALSE = "false";
+	public static final String NULL = "null";
+	public static final String TRUE = "true";
+	public static final String FALSE = "false";
 
 	public static final TokenType[] DICTIONARY_KEY_TOKENS = new TokenType[] {
 			TokenType.STRING_DOUBLE_QUOTED, TokenType.STRING_SINGLE_QUOTED,
@@ -42,7 +42,7 @@ public class JasmineReader {
 	 */
 	int stackDepth;
 
-	public static Value read(CharSequence input) {
+	public static Value read(final CharSequence input) {
 		return new JasmineReader().toValue(input, true);
 	}
 
@@ -52,7 +52,7 @@ public class JasmineReader {
 		}
 	}
 
-	private Value buildValue(Token token) {
+	private Value buildValue(final Token token) {
 		stackDepth++;
 		checkStackDepth();
 		Value value = null;
@@ -154,12 +154,12 @@ public class JasmineReader {
 				}
 
 				// Get key value
-				Value dict_key_value = decodeDictionaryKey(token);
-				if (dict_key_value == null)
+				Value dictKeyValue = decodeDictionaryKey(token);
+				if (dictKeyValue == null)
 					return null;
 
 				// Get key string
-				String dict_key = dict_key_value.getAsString();
+				String dictKey = dictKeyValue.getAsString();
 
 				// Key-value pair separator
 				position += token.getLength();
@@ -175,7 +175,7 @@ public class JasmineReader {
 					return null;
 
 				// Add key and value to the dictionary
-				((DictionaryValue) value).add(dict_key, dict_value);
+				((DictionaryValue) value).add(dictKey, dict_value);
 
 				// Get list separator
 				parseToken(token);
@@ -209,10 +209,9 @@ public class JasmineReader {
 
 	}
 
-	public Value toValue(CharSequence aJson, boolean checkRoot) {
-
-		jasmine = aJson;
-		Token token = new Token();
+	public Value toValue(CharSequence text, boolean checkRoot) {
+		jasmine = text;
+		final Token token = new Token(jasmine);
 		parseToken(token);
 		// The root token must be an array or an object.
 		if (checkRoot && token.getType() != TokenType.OBJECT_BEGIN
@@ -236,60 +235,60 @@ public class JasmineReader {
 
 	}
 
-	private void parseToken(Token o_token) {
+	private void parseToken(final Token token) {
 		eatWhitespaceAndComments();
 
-		o_token.set(TokenType.INVALID, 0, 0);
+		token.set(TokenType.INVALID, 0, 0);
 
 		if (position == jasmine.length()) {
-			o_token.setType(TokenType.END_OF_INPUT);
+			token.setType(TokenType.END_OF_INPUT);
 			return;
 		}
 
 		switch (jasmine.charAt(position)) {
 		case 'n':
-			if (nextStringMatch(STR_NULL))
-				o_token.set(TokenType.NULL, position, 4);
+			if (nextStringMatch(NULL))
+				token.set(TokenType.NULL, position, 4);
 			else
-				parseSymbol(o_token);
+				parseSymbol(token);
 			break;
 
 		case 't':
-			if (nextStringMatch(STR_TRUE))
-				o_token.set(TokenType.BOOL_TRUE, position, 4);
+			if (nextStringMatch(TRUE))
+				token.set(TokenType.BOOL_TRUE, position, 4);
 			else
-				parseSymbol(o_token);
+				parseSymbol(token);
 			break;
 
 		case 'f':
-			if (nextStringMatch(STR_FALSE))
-				o_token.set(TokenType.BOOL_FALSE, position, 5);
+			if (nextStringMatch(FALSE))
+				token.set(TokenType.BOOL_FALSE, position, 5);
 			else
-				parseSymbol(o_token);
+				parseSymbol(token);
 			break;
 
 		case '[':
-			o_token.set(TokenType.ARRAY_BEGIN, position, 1);
+			token.set(TokenType.ARRAY_BEGIN, position, 1);
 			break;
 
 		case ']':
-			o_token.set(TokenType.ARRAY_END, position, 1);
+			token.set(TokenType.ARRAY_END, position, 1);
 			break;
 
 		case ',':
-			o_token.set(TokenType.LIST_SEPARATOR, position, 1);
+			token.set(TokenType.LIST_SEPARATOR, position, 1);
 			break;
 
 		case '{':
-			o_token.set(TokenType.OBJECT_BEGIN, position, 1);
+			token.set(TokenType.OBJECT_BEGIN, position, 1);
 			break;
 
 		case '}':
-			o_token.set(TokenType.OBJECT_END, position, 1);
+			token.set(TokenType.OBJECT_END, position, 1);
 			break;
 
 		case ':':
-			o_token.set(TokenType.OBJECT_PAIR_SEPARATOR, position, 1);
+			token.set(TokenType.OBJECT_PAIR_SEPARATOR, position, 1);
 			break;
 
 		case '0':
@@ -302,100 +301,93 @@ public class JasmineReader {
 		case '7':
 		case '8':
 		case '9':
-			parseNumberToken(o_token);
+			parseNumberToken(token);
 			break;
 
 		case '-':
-			parseNumberToken(o_token);
-			if (o_token.getType() == TokenType.INVALID)
-				parseSymbol(o_token);
+			parseNumberToken(token);
+			if (token.getType() == TokenType.INVALID)
+				parseSymbol(token);
 			break;
 
 		case '"':
-			parseStringDoubleQuoted(o_token);
+			parseStringDoubleQuoted(token);
 			break;
 
 		case '\'':
-			parseStringSingleQuoted(o_token);
+			parseStringSingleQuoted(token);
 			break;
 
 		case '/':
-			parseRegExp(o_token);
+			parseRegExp(token);
 			break;
 
 		default:
-			parseSymbol(o_token);
+			parseSymbol(token);
 		}
 	}
 
-	private void parseRegExp(Token o_token) {
-		o_token.set(TokenType.REG_EXP, position, 1);
-		char c = o_token.nextChar(jasmine);
+	private void parseRegExp(final Token token) {
+		token.set(TokenType.REG_EXP, position, 1);
+		char c = token.nextChar();
 		while ('\0' != c) {
 			if ('\\' == c) {
-				o_token.incLength();
-				c = o_token.nextChar(jasmine);
+				token.incLength();
+				c = token.nextChar();
 			} else if ('/' == c) {
-				o_token.incLength();
+				token.incLength();
 				break;
 			}
 
-			o_token.incLength();
-			c = o_token.nextChar(jasmine);
+			token.incLength();
+			c = token.nextChar();
 		}
 
 		if ('/' != c) {
-			throw new UnexpectedlyTerminatedException(findLinePos(o_token));
+			throw new UnexpectedlyTerminatedException(findLinePos(token));
 		}
 
-		c = o_token.nextChar(jasmine);
+		c = token.nextChar();
 		while ('\0' != c && Helpers.isJasmineSymbolChar(c)) {
-			o_token.incLength();
-			c = o_token.nextChar(jasmine);
+			token.incLength();
+			c = token.nextChar();
 		}
 	}
 
-	private Value decodeRegExp(Token token) {
-		StringBuffer decoded_reg_ex = new StringBuffer();
-		;
-
+	private Value decodeRegExp(final Token token) {
+		StringBuffer decodedRegEx = new StringBuffer();
 		int i = 1;
 		for (; i < token.getLength() - 1; ++i) {
 			char c = jasmine.charAt(token.getBegin() + i);
 
 			if ('\\' == c) {
 				// Not escaped
-				decoded_reg_ex.append(c);
+				decodedRegEx.append(c);
 				// Read the escaped character
 				i++;
 				c = jasmine.charAt(token.getBegin() + i);
-				decoded_reg_ex.append(c);
+				decodedRegEx.append(c);
 			} else if ('/' == c) {
 				// End of regexp, options may continue
 				break;
 			} else {
-				decoded_reg_ex.append(c);
+				decodedRegEx.append(c);
 			}
 		}
-
-		StringBuffer decoded_options = new StringBuffer();
-		// Skip '/'
-		i++;
-
+		StringBuffer decodedOptions = new StringBuffer();
+		i++; // Skip '/'
 		for (; i < token.getLength(); ++i) {
-			decoded_options.append(jasmine.charAt(token.getBegin() + i));
+			decodedOptions.append(jasmine.charAt(token.getBegin() + i));
 		}
-
-		return Value.createRegExpValue(decoded_reg_ex.toString(),
-				decoded_options.toString());
+		return Value.createRegExpValue(decodedRegEx.toString(),
+				decodedOptions.toString());
 	}
 
-	private Value decodeSymbol(Token token) {
-		return Value.createStringValue(token.getString(jasmine),
-				StringType.UNQUOTED);
+	private Value decodeSymbol(final Token token) {
+		return Value.createStringValue(token.getString(), StringType.UNQUOTED);
 	}
 
-	private Value decodeDictionaryKey(Token token) {
+	private Value decodeDictionaryKey(final Token token) {
 		switch (token.getType()) {
 		case STRING_DOUBLE_QUOTED:
 			return decodeStringDoubleQuoted(token);
@@ -408,63 +400,63 @@ public class JasmineReader {
 				"Invalid dictionary key value found where I did not expect it.");
 	}
 
-	private void parseSymbol(Token o_token) {
+	private void parseSymbol(final Token token) {
 		char c = jasmine.charAt(position);
 		if (Helpers.isJasmineSymbolChar(c)) {
-			o_token.set(TokenType.SYMBOL, position, 0);
+			token.set(TokenType.SYMBOL, position, 0);
 
 			do {
-				o_token.incLength();
-				c = o_token.nextChar(jasmine);
+				token.incLength();
+				c = token.nextChar();
 
 			} while (Helpers.isJasmineSymbolChar(c));
 		}
 	}
 
-	private void parseNumberToken(Token o_token) {
+	private void parseNumberToken(final Token token) {
 		// We just grab the number here. We validate the size in DecodeNumber.
 		// According to RFC4627, a valid number is: [minus] int [frac] [exp]
-		o_token.set(TokenType.NUMBER, position, 0);
+		token.set(TokenType.NUMBER, position, 0);
 
 		char c = jasmine.charAt(position);
 		if ('-' == c) {
-			o_token.incLength();
-			c = o_token.nextChar(jasmine);
+			token.incLength();
+			c = token.nextChar();
 		}
 
-		if (!Helpers.readInteger(o_token, jasmine, false)) {
-			o_token.setType(TokenType.INVALID);
+		if (!Helpers.readInteger(token, false)) {
+			token.setType(TokenType.INVALID);
 			return;
 		}
 
 		// Optional fraction part
-		c = o_token.nextChar(jasmine);
+		c = token.nextChar();
 		if ('.' == c) {
-			o_token.incLength();
-			if (!Helpers.readInteger(o_token, jasmine, true)) {
-				o_token.setType(TokenType.INVALID);
+			token.incLength();
+			if (!Helpers.readInteger(token, true)) {
+				token.setType(TokenType.INVALID);
 				return;
 			}
-			c = o_token.nextChar(jasmine);
+			c = token.nextChar();
 		}
 
 		// Optional exponent part
 		if ('e' == c || 'E' == c) {
-			o_token.incLength();
-			c = o_token.nextChar(jasmine);
+			token.incLength();
+			c = token.nextChar();
 			if ('-' == c || '+' == c) {
-				o_token.incLength();
-				c = o_token.nextChar(jasmine);
+				token.incLength();
+				c = token.nextChar();
 			}
 
-			if (!Helpers.readInteger(o_token, jasmine, true)) {
-				o_token.setType(TokenType.INVALID);
+			if (!Helpers.readInteger(token, true)) {
+				token.setType(TokenType.INVALID);
 				return;
 			}
 		}
 	}
 
-	private Value decodeNumber(Token token) {
+	private Value decodeNumber(final Token token) {
 		try {
 			int num_int = Helpers.stringToInteger(token.getBegin(), jasmine,
 					token.getLength());
@@ -484,26 +476,26 @@ public class JasmineReader {
 		}
 	}
 
-	private void parseStringDoubleQuoted(Token o_token) {
-		o_token.set(TokenType.STRING_DOUBLE_QUOTED, position, 1);
-		char c = o_token.nextChar(jasmine);
+	private void parseStringDoubleQuoted(final Token token) {
+		token.set(TokenType.STRING_DOUBLE_QUOTED, position, 1);
+		char c = token.nextChar();
 		while ('\0' != c) {
 			if ('\\' == c) {
-				o_token.incLength();
-				c = o_token.nextChar(jasmine);
+				token.incLength();
+				c = token.nextChar();
 				// Make sure the escaped char is valid.
 				switch (c) {
 				case 'x':
-					if (!Helpers.readHexDigits(o_token, jasmine, 2)) {
+					if (!Helpers.readHexDigits(token, jasmine, 2)) {
 						throw new InvalidEscapeInStringException('x',
-								findLinePos(position + o_token.getLength() - 2));
+								findLinePos(position + token.getLength() - 2));
 					}
 					break;
 
 				case 'u':
-					if (!Helpers.readHexDigits(o_token, jasmine, 4)) {
+					if (!Helpers.readHexDigits(token, jasmine, 4)) {
 						throw new InvalidEscapeInStringException('u',
-								findLinePos(position + o_token.getLength() - 2));
+								findLinePos(position + token.getLength() - 2));
 					}
 					break;
 
@@ -520,21 +512,21 @@ public class JasmineReader {
 
 				default:
 					throw new InvalidEscapeInStringException(c,
-							findLinePos(position + o_token.getLength() - 2));
+							findLinePos(position + token.getLength() - 2));
 				}
 
 			} else if ('"' == c) {
-				o_token.incLength();
+				token.incLength();
 				return;
 			}
 
-			o_token.incLength();
-			c = o_token.nextChar(jasmine);
+			token.incLength();
+			c = token.nextChar();
 		}
-		o_token.setType(TokenType.INVALID);
+		token.setType(TokenType.INVALID);
 	}
 
-	private Value decodeStringDoubleQuoted(Token token) {
+	private Value decodeStringDoubleQuoted(final Token token) {
 		StringBuilder decoded_str = new StringBuilder();
 
 		for (int i = 1; i < token.getLength() - 1; ++i) {
@@ -597,30 +589,29 @@ public class JasmineReader {
 				decoded_str.append(c);
 			}
 		}
-
 		return Value.createStringValue(decoded_str.toString());
 	}
 
-	private void parseStringSingleQuoted(Token o_token) {
-		o_token.set(TokenType.STRING_SINGLE_QUOTED, position, 1);
-		char c = o_token.nextChar(jasmine);
+	private void parseStringSingleQuoted(final Token token) {
+		token.set(TokenType.STRING_SINGLE_QUOTED, position, 1);
+		char c = token.nextChar();
 
 		while ('\0' != c) {
 			if ('\'' == c) {
-				o_token.incLength();
-				c = o_token.nextChar(jasmine);
+				token.incLength();
+				c = token.nextChar();
 				if ('\'' != c) {
 					return;
 				}
 			}
 
-			o_token.incLength();
-			c = o_token.nextChar(jasmine);
+			token.incLength();
+			c = token.nextChar();
 		}
-		o_token.setType(TokenType.INVALID);
+		token.setType(TokenType.INVALID);
 	}
 
-	private Value decodeStringSingleQuoted(Token token) {
+	private Value decodeStringSingleQuoted(final Token token) {
 		StringBuilder decoded_str = new StringBuilder();
 
 		for (int i = 1; i < token.getLength() - 1; ++i) {
@@ -641,7 +632,7 @@ public class JasmineReader {
 				StringType.SINGLE_QUOTED);
 	}
 
-	private boolean nextStringMatch(String str) {
+	private boolean nextStringMatch(final String str) {
 		for (int i = 0; i < str.length(); ++i) {
 			if (position == jasmine.length())
 				return false;
@@ -678,8 +669,8 @@ public class JasmineReader {
 		if ('/' != jasmine.charAt(position))
 			return false;
 
-		char next_char = jasmine.charAt(position + 1);
-		if ('/' == next_char) {
+		char nextChar = jasmine.charAt(position + 1);
+		if ('/' == nextChar) {
 			// Line comment, read until \n or \r
 			position += 2;
 			while (position != jasmine.length()) {
@@ -692,7 +683,7 @@ public class JasmineReader {
 					++position;
 				}
 			}
-		} else if ('*' == next_char) {
+		} else if ('*' == nextChar) {
 			// Block comment, read until */
 			position += 2;
 			while (position != jasmine.length()) {

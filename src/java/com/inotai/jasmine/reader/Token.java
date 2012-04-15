@@ -4,43 +4,47 @@ public class Token {
 
 	private TokenType type;
 
-	// A pointer into JsonReader::json_pos_ that's the beginning of this token.
+	/**
+	 * A pointer into JsonReader::json_pos_ that's the beginning of this token.
+	 */
 	private int begin;
 
-	// End should be one char past the end of the token.
+	/**
+	 * End should be one char past the end of the token.
+	 */
 	private int length;
 
-	public Token() {
+	private final CharSequence input;
+
+	public Token(CharSequence aInput) {
+		input = aInput;
 		type = TokenType.INVALID;
 		begin = 0;
 		length = 0;
 	}
 
-	public Token(TokenType t, int b, int len) {
-		type = t;
-		begin = b;
-		length = len;
-	}
-
 	public Token(Token orig) {
+		input = orig.input;
 		type = orig.type;
 		begin = orig.begin;
 		length = orig.length;
 	}
 
-	// Get the character that's one past the end of this token.
-	public char nextChar(CharSequence input) {
+	/**
+	 * Get the character that's one past the end of this token. Returns \0 in
+	 * case we are at the end of input.
+	 */
+	public char nextChar() {
 		if (begin + length == input.length()) {
 			return '\0';
 		}
 		return input.charAt(begin + length);
 	}
 
-	// Sets the token
-	public void set(TokenType __type, int __begin, int __length) {
-		type = __type;
-		begin = __begin;
-		length = __length;
+	public void set(TokenType aType, int aBegin, int aLength) {
+		type = aType;
+		begin = aBegin;
+		length = aLength;
 	}
 
 	public void setType(TokenType type) {
@@ -67,7 +71,7 @@ public class Token {
 		return length;
 	}
 
-	public CharSequence getString(CharSequence input) {
+	public CharSequence getString() {
 		return input.subSequence(begin, begin + length);
 	}
 
