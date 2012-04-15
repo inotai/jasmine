@@ -21,7 +21,7 @@ public class Token {
 		begin = b;
 		length = len;
 	}
-	
+
 	public Token(Token orig) {
 		type = orig.type;
 		begin = orig.begin;
@@ -30,6 +30,9 @@ public class Token {
 
 	// Get the character that's one past the end of this token.
 	public char nextChar(CharSequence input) {
+		if (begin + length == input.length()) {
+			return '\0';
+		}
 		return input.charAt(begin + length);
 	}
 

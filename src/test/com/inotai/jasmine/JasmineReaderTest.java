@@ -9,7 +9,7 @@ import static org.junit.Assert.*;
 public class JasmineReaderTest {
 
 	@Test
-	public void simpleTest() {
+	public void testSimpleDisctionary() {
 		String in = "{key: 'value'}";
 		DictionaryValue val= (DictionaryValue) JasmineReader.read(in);
 		assertNotNull(val);

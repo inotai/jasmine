@@ -1,9 +1,16 @@
 package com.inotai.jasmine;
 
-import com.inotai.jasmine.reader.Flags;
 import com.inotai.jasmine.reader.Helpers;
 import com.inotai.jasmine.reader.Token;
 import com.inotai.jasmine.reader.TokenType;
+import com.inotai.jasmine.reader.error.BadRootElementTypeException;
+import com.inotai.jasmine.reader.error.InvalidDictionaryKeyException;
+import com.inotai.jasmine.reader.error.InvalidEscapeInStringException;
+import com.inotai.jasmine.reader.error.ParserException;
+import com.inotai.jasmine.reader.error.TooMuchNestingException;
+import com.inotai.jasmine.reader.error.UnexpectedDataAfterRootException;
+import com.inotai.jasmine.reader.error.UnexpectedTokenException;
+import com.inotai.jasmine.reader.error.UnexpectedlyTerminatedException;
 import com.inotai.jasmine.value.DictionaryValue;
 import com.inotai.jasmine.value.ListValue;
 import com.inotai.jasmine.value.StringType;
@@ -21,9 +28,12 @@ public class JasmineReader {
 
 		public int line;
 
-		public int linePos;
+		public int column;
 
-		public int offset;
+		public void set(LinePos o) {
+			line = o.line;
+			column = o.column;
+		}
 
 	}
 
@@ -40,53 +50,37 @@ public class JasmineReader {
 	// Used to keep track of how many nested lists/dicts there are.
 	int m_stack_depth;
 
-	// Parser flags
-	private final Flags m_flags;
-
-	private JasmineReader(Flags flags) {
-		m_flags = flags;
-	}
-
 	public static Value read(CharSequence input) {
-		return new JasmineReader(Flags.getJasmine()).toValue(input, true);
+		return new JasmineReader().toValue(input, true);
 
 	}
 
-	private Value buildValue(boolean checkRoot) {
+	private Value buildValue(boolean isRoot) {
 		m_stack_depth++;
 		if (m_stack_depth > STACK_LIMIT) {
-			LinePos begin = new LinePos();
-			// findLinePos( m_pos, begin );
-			// throw new JsonTooMuchNestingException(begin, begin);
+			LinePos begin = findLinePos(m_pos, 0);
+			throw new TooMuchNestingException(begin.line, begin.column);
 		}
 
 		Token token = new Token();
 		parseToken(token);
 		// The root token must be an array or an object.
-		// if( is_root && token.type != TokenType.T_ObjectBegin && token.type !=
-		// TokenType.T_ArrayBegin )
-		{
-			LinePos begin, end;
-			// findLinePos( token, &begin, &end );
-			// throw JsonBadRootElementTypeException( begin, end );
+		if (isRoot && token.getType() != TokenType.T_ObjectBegin
+				&& token.getType() != TokenType.T_ArrayBegin) {
+			throw new BadRootElementTypeException();
 		}
 
 		Value node = null;
 
 		switch (token.getType()) {
 		case T_Invalid: {
-			// LinePos begin, end;
-			// findLinePos( token, &begin, &end );
-			// throw JsonUnexpectedTokenException( begin, end );
+			LinePos linePos = findLinePos(token, 0);
+			throw new UnexpectedTokenException(linePos.line, linePos.column);
 		}
-			return null;
 
 		case T_EndOfInput: {
-			// LinePos begin;
-			// findLinePos( token.begin, &begin );
-			// throw JsonUnexpectedlyTerminatedException( begin, begin );
+			throw new UnexpectedlyTerminatedException();
 		}
-			return null;
 
 		case T_Null:
 			node = Value.createNullValue();
@@ -148,30 +142,12 @@ public class JasmineReader {
 				parseToken(token);
 
 				if (token.getType() == TokenType.T_ListSeparator) {
-					Token token_comma = new Token(token);
-
 					m_pos += token.getLength();
 					parseToken(token);
-
-					// Trailing commas are invalid according to the JSON RFC,
-					// but some
-					// consumers need the parsing leniency, so handle
-					// accordingly.
 					if (token.getType() == TokenType.T_ArrayEnd) {
-						if (!m_flags.isComma_trailing()) {
-							// LinePos begin, end;
-							// findLinePos( token_comma, &begin, &end );
-							// throw JsonTrailingCommaException( begin, end );
-						}
-
 						// Trailing comma OK, stop parsing the Array.
 						break;
 					}
-
-				} else if (m_flags.isComma_omit() == false
-						&& token.getType() != TokenType.T_ArrayEnd) {
-					// Unexpected value after list value. Bail out.
-					return null;
 				}
 			}
 
@@ -188,17 +164,16 @@ public class JasmineReader {
 
 			node = Value.createDictionaryValue();
 			while (token.getType() != TokenType.T_ObjectEnd) {
-				if (m_flags.isSymbols()
-						&& token.getType() == TokenType.T_Number) {
+				if (token.getType() == TokenType.T_Number) {
 					token.setType(TokenType.T_Symbol);
 				}
 
 				if (!token_type_is_in(token.getType(),
 						TokenType.T_StringDoubleQuoted,
 						TokenType.T_StringSingleQuoted, TokenType.T_Symbol)) {
-					// LinePos begin, end;
-					// findLinePos( token, &begin, &end );
-					// throw JsonInvalidDictionaryKeyException( begin, end );
+					LinePos pos = findLinePos(token, 0);
+					throw new InvalidDictionaryKeyException(pos.line,
+							pos.column);
 				}
 
 				// Get key value
@@ -226,32 +201,15 @@ public class JasmineReader {
 				((DictionaryValue) node).add(dict_key, dict_value);
 
 				// Get list separator
-				// @todo Make this optional
 				parseToken(token);
 				if (token.getType() == TokenType.T_ListSeparator) {
-					Token token_comma = new Token(token);
-
 					// Check what's next
 					m_pos += token.getLength();
 					parseToken(token);
-
-					// Trailing commas are invalid according to the JSON RFC,
-					// but some
-					// consumers need the parsing leniency, so handle
-					// accordingly.
 					if (token.getType() == TokenType.T_ObjectEnd) {
-						if (!m_flags.isComma_trailing()) {
-							// LinePos begin, end;
-							// findLinePos( token_comma, &begin, &end );
-							// throw JsonTrailingCommaException( begin, end );
-						}
 						// Trailing comma OK, stop parsing the Object.
 						break;
 					}
-				} else if (m_flags.isComma_omit() == false
-						&& token.getType() != TokenType.T_ObjectEnd) {
-					// Unexpected value after last object value. Bail out.
-					return null;
 				}
 			}
 
@@ -263,9 +221,8 @@ public class JasmineReader {
 		}
 
 		default: {
-			// LinePos begin, end;
-			// findLinePos( token, &begin, &end );
-			// throw JsonSyntaxException( begin, end );
+			LinePos pos = findLinePos(token, 0);
+			throw new ParserException(pos.line, pos.column);
 		}
 		}
 
@@ -281,48 +238,52 @@ public class JasmineReader {
 		json = aJson;
 		Value root = buildValue(checkRoot);
 		if (root != null) {
-			/*
-			 * parseToken( token );
-			 * 
-			 * if( token.type == TokenType.T_EndOfInput ) return root.release();
-			 * else { LinePos begin, end; findLinePos( token, &begin, &end );
-			 * throw JsonUnexpectedDataAfterRoot( begin, end ); }
-			 */
+			Token token = new Token();
+			parseToken(token);
+
+			if (token.getType() == TokenType.T_EndOfInput)
+				return root;
+			else {
+				LinePos pos = findLinePos(token, 0);
+				throw new UnexpectedDataAfterRootException(pos.line, pos.column);
+			}
+
 		}
 
-		return root;
+		Helpers.not_reached();
+		return null;
 
 	}
 
-	void parseToken(Token o_token)
-	// ------------------------------------------------------------------------
-	{
+	void parseToken(Token o_token) {
 		eatWhitespaceAndComments();
 
 		o_token.set(TokenType.T_Invalid, 0, 0);
-		switch (json.charAt(m_pos)) {
-		case '\0':
-			o_token.setType(TokenType.T_EndOfInput);
-			break;
 
+		if (m_pos == json.length()) {
+			o_token.setType(TokenType.T_EndOfInput);
+			return;
+		}
+
+		switch (json.charAt(m_pos)) {
 		case 'n':
 			if (nextStringMatch(STR_NULL))
 				o_token.set(TokenType.T_Null, m_pos, 4);
-			else if (m_flags.isSymbols())
+			else
 				parseSymbol(o_token);
 			break;
 
 		case 't':
 			if (nextStringMatch(STR_TRUE))
 				o_token.set(TokenType.T_BoolTrue, m_pos, 4);
-			else if (m_flags.isSymbols())
+			else
 				parseSymbol(o_token);
 			break;
 
 		case 'f':
 			if (nextStringMatch(STR_FALSE))
 				o_token.set(TokenType.T_BoolFalse, m_pos, 5);
-			else if (m_flags.isSymbols())
+			else
 				parseSymbol(o_token);
 			break;
 
@@ -365,7 +326,7 @@ public class JasmineReader {
 
 		case '-':
 			parseNumberToken(o_token);
-			if (m_flags.isSymbols() && o_token.getType() == TokenType.T_Invalid)
+			if (o_token.getType() == TokenType.T_Invalid)
 				parseSymbol(o_token);
 			break;
 
@@ -374,21 +335,15 @@ public class JasmineReader {
 			break;
 
 		case '\'':
-			if (m_flags.isString_single_quoted()) {
-				parseStringSingleQuoted(o_token);
-			}
+			parseStringSingleQuoted(o_token);
 			break;
 
 		case '/':
-			if (m_flags.isReg_exp()) {
-				parseRegExp(o_token);
-			}
+			parseRegExp(o_token);
 			break;
 
 		default:
-			if (m_flags.isSymbols()) {
-				parseSymbol(o_token);
-			}
+			parseSymbol(o_token);
 		}
 
 		return;
@@ -411,9 +366,8 @@ public class JasmineReader {
 		}
 
 		if ('/' != c) {
-			LinePos begin, end;
-			// findLinePos( o_token, &begin, &end );
-			// throw JsonUnexpectedlyTerminatedException( begin, end );
+			LinePos pos = findLinePos(o_token, 0);
+			throw new UnexpectedlyTerminatedException(pos.line, pos.column);
 		}
 
 		c = o_token.nextChar(json);
@@ -564,21 +518,19 @@ public class JasmineReader {
 				switch (c) {
 				case 'x':
 					if (!Helpers.read_hex_digits(o_token, json, 2)) {
-						LinePos begin, end;
-						// findLinePos( m_pos + o_token.getLength() - 2, m_pos +
-						// o_token.getLength(), begin, end );
-						// throw JsonInvalidEscapeInStringException( 'x', begin,
-						// end );
+						LinePos pos = findLinePos(m_pos + o_token.getLength()
+								- 2, m_pos + o_token.getLength());
+						throw new InvalidEscapeInStringException('x', pos.line,
+								pos.column);
 					}
 					break;
 
 				case 'u':
 					if (!Helpers.read_hex_digits(o_token, json, 4)) {
-						LinePos begin, end;
-						// findLinePos( m_pos + o_token.length - 2, m_pos +
-						// o_token.length, &begin, &end );
-						// throw JsonInvalidEscapeInStringException( 'u', begin,
-						// end );
+						LinePos pos = findLinePos(m_pos + o_token.getLength()
+								- 2, m_pos + o_token.getLength());
+						throw new InvalidEscapeInStringException('u', pos.line,
+								pos.column);
 					}
 					break;
 
@@ -594,12 +546,10 @@ public class JasmineReader {
 					break;
 
 				default:
-					LinePos begin,
-					end;
-					// findLinePos( m_pos + o_token.length - 2, m_pos +
-					// o_token.length, &begin, &end );
-					// throw JsonInvalidEscapeInStringException( c, begin, end
-					// );
+					LinePos pos = findLinePos(m_pos + o_token.getLength() - 2,
+							m_pos + o_token.getLength());
+					throw new InvalidEscapeInStringException(c, pos.line,
+							pos.column);
 				}
 
 			} else if ('"' == c) {
@@ -727,7 +677,7 @@ public class JasmineReader {
 
 	boolean nextStringMatch(String str) {
 		for (int i = 0; i < str.length(); ++i) {
-			if ('\0' == json.charAt(m_pos))
+			if (m_pos == json.length())
 				return false;
 
 			if (json.charAt(m_pos + 1) != str.charAt(i))
@@ -738,7 +688,7 @@ public class JasmineReader {
 	}
 
 	void eatWhitespaceAndComments() {
-		while ('\0' != json.charAt(m_pos)) {
+		while (m_pos != json.length()) {
 			switch (json.charAt(m_pos)) {
 			case ' ':
 			case '\n':
@@ -747,8 +697,6 @@ public class JasmineReader {
 				++m_pos;
 				break;
 			case '/':
-				// TODO(tc): This isn't in the RFC so it should be a parser
-				// flag.
 				if (!eatComment())
 					return;
 				break;
@@ -768,7 +716,7 @@ public class JasmineReader {
 		if ('/' == next_char) {
 			// Line comment, read until \n or \r
 			m_pos += 2;
-			while ('\0' != json.charAt(m_pos)) {
+			while (m_pos != json.length()) {
 				switch (json.charAt(m_pos)) {
 				case '\n':
 				case '\r':
@@ -781,7 +729,7 @@ public class JasmineReader {
 		} else if ('*' == next_char) {
 			// Block comment, read until */
 			m_pos += 2;
-			while ('\0' != json.charAt(m_pos)) {
+			while (m_pos != json.length()) {
 				if ('*' == json.charAt(m_pos) && '/' == json.charAt(m_pos + 1)) {
 					m_pos += 2;
 					return true;
@@ -817,6 +765,31 @@ public class JasmineReader {
 			}
 		}
 		return false;
+	}
+
+	LinePos findLinePos(int offset, int begin) {
+		LinePos linePos = new LinePos();
+		int end = m_pos_start + offset;
+		int pos = m_pos_start + begin;
+		// Figure out the line and column the error occurred at.
+		for (; pos != end; ++pos) {
+			if (pos == json.length()) {
+				Helpers.not_reached();
+			}
+
+			if (json.charAt(pos) == '\n') {
+				linePos.line++;
+				linePos.column = 1;
+			} else {
+				linePos.column++;
+			}
+		}
+		return linePos;
+	}
+
+	private LinePos findLinePos(Token token, int begin) {
+		return findLinePos(token.getBegin(),
+				token.getBegin() + token.getLength());
 	}
 
 }
