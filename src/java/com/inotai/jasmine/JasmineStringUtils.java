@@ -119,6 +119,12 @@ class JasmineStringUtils {
 
 	static public void writeRegEx(String regEx, String options,
 			StringBuilder builder) {
+        if( regEx.length() == 0 ) {
+            // Special case: If regEx is empty, we return null
+            builder.append("null");
+            return;
+        }
+
 		builder.append("/");
 		for (int i = 0; i < regEx.length(); i++) {
 			char c = regEx.charAt(i);
