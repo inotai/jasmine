@@ -3,3 +3,5 @@ build
 .DS_store
 .project
 .classpath
+/Jasmine.ipr
+/Jasmine.iws
